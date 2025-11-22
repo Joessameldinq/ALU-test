@@ -1,7 +1,7 @@
 # ALU-test
 
 #Requirement for Logism Evolution
-JRE(java run time evolution) 
+JRE(java run time Environment) 
 
 #Repo link
 https://github.com/logisim-evolution/logisim-evolution/releases
