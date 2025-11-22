@@ -14,14 +14,12 @@ def to_twos_complement_bin(val, width=4):
     mask = (1 << width) - 1
     return bin(val & mask)[2:].zfill(width)
 
-def detect_carry(result, width=4):
-    """Detects if a carry occurred (result exceeds width bits)."""
+def detect_carry_add(result, width=4):
+    """Detects if a carry occurred in addition."""
     return 1 if result > ((1 << width) - 1) else 0
 
 def detect_overflow_add(A_signed, B_signed, result_signed, width=4):
     """Detects overflow in addition (two's complement)."""
-    # Overflow occurs when:
-    # - Both operands have same sign AND result has different sign
     if (A_signed >= 0 and B_signed >= 0 and result_signed < 0):
         return 1
     if (A_signed < 0 and B_signed < 0 and result_signed >= 0):
@@ -30,9 +28,6 @@ def detect_overflow_add(A_signed, B_signed, result_signed, width=4):
 
 def detect_overflow_sub(A_signed, B_signed, result_signed, width=4):
     """Detects overflow in subtraction (two's complement)."""
-    # Overflow in A - B occurs when:
-    # - A is positive and B is negative but result is negative
-    # - A is negative and B is positive but result is positive
     if (A_signed >= 0 and B_signed < 0 and result_signed < 0):
         return 1
     if (A_signed < 0 and B_signed >= 0 and result_signed >= 0):
@@ -69,71 +64,52 @@ def alu_arithmetic_4bit(A_bin, B_bin, opcode_bin):
         result_val = unsigned_res & MAX_UNSIGNED
         result_bin = bin(result_val)[2:].zfill(BITS)
         
-        # Flags
+        # Flags for ADD
         result_signed = to_signed_int(result_bin, BITS)
-        Carry = detect_carry(unsigned_res, BITS)
+        Carry = detect_carry_add(unsigned_res, BITS)
         Overflow_flag = detect_overflow_add(A_signed, B_signed, result_signed, BITS)
         Zero_flag = detect_zero_flag(result_bin)
         
     elif opcode_bin == '0001':  # SUBTRACT: A - B
-        # For unsigned: if A < B, there's a borrow
-        if A_unsigned < B_unsigned:
-            unsigned_res = A_unsigned - B_unsigned + (1 << BITS)
+        unsigned_res = A_unsigned - B_unsigned
+        if unsigned_res < 0:
+            result_val = (unsigned_res + (1 << BITS)) & MAX_UNSIGNED
             Carry = 1
         else:
-            unsigned_res = A_unsigned - B_unsigned
+            result_val = unsigned_res & MAX_UNSIGNED
             Carry = 0
         
-        result_val = unsigned_res & MAX_UNSIGNED
         result_bin = bin(result_val)[2:].zfill(BITS)
-        
-        # Overflow detection for signed subtraction (A - B)
         result_signed = to_signed_int(result_bin, BITS)
         Overflow_flag = detect_overflow_sub(A_signed, B_signed, result_signed, BITS)
         Zero_flag = detect_zero_flag(result_bin)
         
     elif opcode_bin == '0010':  # SUBTRACT: B - A
-        # For unsigned: if B < A, there's a borrow
-        if B_unsigned < A_unsigned:
-            unsigned_res = B_unsigned - A_unsigned + (1 << BITS)
+        unsigned_res = B_unsigned - A_unsigned
+        if unsigned_res < 0:
+            result_val = (unsigned_res + (1 << BITS)) & MAX_UNSIGNED
             Carry = 1
         else:
-            unsigned_res = B_unsigned - A_unsigned
+            result_val = unsigned_res & MAX_UNSIGNED
             Carry = 0
         
-        result_val = unsigned_res & MAX_UNSIGNED
         result_bin = bin(result_val)[2:].zfill(BITS)
-        
-        # Overflow detection for signed subtraction (B - A)
         result_signed = to_signed_int(result_bin, BITS)
         Overflow_flag = detect_overflow_sub(B_signed, A_signed, result_signed, BITS)
         Zero_flag = detect_zero_flag(result_bin)
-        
-    elif opcode_bin == '0011':  # MULTIPLY: A * B
-        product = A_signed * B_signed
-        result_bin = to_twos_complement_bin(product, BITS)
-        
-        # Check for overflow in multiplication
-        result_signed = to_signed_int(result_bin, BITS)
-        if product != result_signed:
-            Overflow_flag = 1
-        
-        Zero_flag = detect_zero_flag(result_bin)
-        # Carry is typically not used for multiplication
-        Carry = 0
     
     return result_bin, Zero_flag, Carry, Overflow_flag
 
 def generate_arithmetic_truth_table(filename="alu_arithmetic_truth_table.txt"):
     """
-    Generates truth table for arithmetic operations (0000-0011) with flags.
+    Generates truth table for arithmetic operations (0000-0010) with flags.
     Output format matches the reference file provided.
     """
     
     total_rows = 0
     
     with open(filename, 'w') as f:
-        # Write header - matching the reference format exactly
+        # Write header
         header = "A[4]\tB[4]\tC[4]\tOutput[4]\tZero_flag\tCarry\tOverflow_flag"
         f.write(header + "\n")
         
@@ -145,15 +121,15 @@ def generate_arithmetic_truth_table(filename="alu_arithmetic_truth_table.txt"):
             for B_val in range(16):
                 B_bin = bin(B_val)[2:].zfill(4)
                 
-                # Only iterate through arithmetic opcodes (0000-0011)
-                for opcode_val in range(4):
+                # Only iterate through arithmetic opcodes (0000-0010) as in reference
+                for opcode_val in range(3):
                     opcode_bin = bin(opcode_val)[2:].zfill(4)
                     
                     output_bin, zero_flag, carry_flag, overflow_flag = alu_arithmetic_4bit(
                         A_bin, B_bin, opcode_bin
                     )
                     
-                    # Format row with tabs - matching reference format
+                    # Format row with tabs
                     row = f"{A_bin}\t{B_bin}\t{opcode_bin}\t{output_bin}\t{zero_flag}\t{carry_flag}\t{overflow_flag}"
                     f.write(row + "\n")
                     total_rows += 1
@@ -168,10 +144,9 @@ file_name = "alu_arithmetic_truth_table.txt"
 num_rows = generate_arithmetic_truth_table(file_name)
 
 print(f"✅ Arithmetic truth table generated and saved to '{file_name}'.")
-print(f"The file contains {num_rows} rows (all 4 operations × 16×16 combinations = 1024 rows).")
+print(f"The file contains {num_rows} rows (3 operations × 16×16 combinations = 768 rows).")
 print(f"\nOperations included:")
 print(f"  0000 - ADD (A + B)")
 print(f"  0001 - SUBTRACT (A - B)")
 print(f"  0010 - SUBTRACT (B - A)")
-print(f"  0011 - MULTIPLY (A × B)")
 print(f"\nFlags included: Zero_flag, Carry, Overflow_flag")
