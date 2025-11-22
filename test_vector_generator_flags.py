@@ -1,6 +1,5 @@
 import os
 
-# --- Helper Functions ---
 
 def to_signed_int(bits, width=4):
     """Converts a binary string (two's complement) to a signed integer."""
@@ -38,7 +37,6 @@ def detect_zero_flag(result_bin):
     """Detects if result is zero."""
     return 1 if result_bin == '0000' else 0
 
-# --- ALU Arithmetic Operations ---
 
 def alu_arithmetic_4bit(A_bin, B_bin, opcode_bin):
     """
